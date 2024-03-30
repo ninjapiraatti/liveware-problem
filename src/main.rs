@@ -5,6 +5,10 @@ use std::env;
 use std::fmt;
 use std::io::{self, BufRead, BufReader, Write};
 use termion::{color, style, terminal_size};
+use std::thread;
+use std::sync::mpsc;
+use std::time::Duration;
+use std::sync::{Arc, Mutex};
 
 #[derive(Deserialize, Debug)]
 struct ApiResponse {
@@ -16,7 +20,7 @@ struct Choice {
     message: Message,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 struct Message {
     role: String,
     content: String,
@@ -96,6 +100,7 @@ fn get_prompt() -> String {
         color::Fg(color::Reset)                        // Reset color
     )
     .unwrap();
+    println!();
 
     // Prompt for input
     //writeln!(stdout, "prompt: (type 'end' on a new line to finish)").unwrap();
@@ -114,7 +119,9 @@ fn get_prompt() -> String {
     prompt
 }
 
-fn send_prompt(prompt: &str, api_key: &str, history: &mut Vec<Message>) -> Result<String, AppError> {
+fn send_prompt(prompt: &str, api_key: &str, history: &Arc<Mutex<Vec<Message>>>) -> Result<String, AppError> {
+    println!();
+    let mut history = history.lock().unwrap();
     history.push(Message {
         role: "user".to_string(),
         content: prompt.to_string(),
@@ -161,7 +168,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv::dotenv().ok();
     let api_key = env::var("OPEN_AI_API_KEY").expect("OPEN_AI_API_KEY not found in .env file");
     
-    let mut history = Vec::new();
+    let history = Arc::new(Mutex::new(Vec::new()));
 
     loop {
         let prompt = get_prompt();
@@ -169,12 +176,46 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             break;
         }
 
-        match send_prompt(&prompt, &api_key as &str, &mut history) {
-            Ok(response) => println!("\nResponse: {}", response),
-            Err(e) => eprintln!("Error: {}", e),
+        let (tx, rx) = mpsc::channel();
+
+        let prompt_clone = prompt.clone();
+        let api_key_clone = api_key.clone();
+        let history_clone = Arc::clone(&history);
+        // Spawn a new thread for the blocking send_prompt operation
+        thread::spawn(move || {
+            let result = send_prompt(&prompt_clone, &api_key_clone as &str, &history_clone);
+            tx.send(result).expect("Failed to send result over channel");
+        });
+
+        let loader_chars = "☺☻♥♦♣♠•○♂♀";
+        let loaderchars_len = loader_chars.chars().count();
+        let mut rng = rand::thread_rng();
+        loop {
+            match rx.recv_timeout(Duration::from_millis(100)) {
+                Ok(result) => {
+                    // Process the result
+                    match result {
+                        Ok(response) => println!("\n\n{}", response),
+                        Err(e) => eprintln!("Error on send_prompt: {}", e),
+                    }
+                    break; // Break the loop when the result is received
+                },
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    // Update and display the animation frame
+                    let idx = rng.gen_range(0..loaderchars_len);
+                    print!("{}{}{}", color::Fg(color::LightCyan), loader_chars.chars().nth(idx).unwrap(), color::Fg(color::Reset));
+                    io::stdout().flush().unwrap();
+                },
+                Err(_) => {
+                    eprintln!("\nThe thread handling the request has terminated unexpectedly.");
+                    break;
+                },
+            }
         }
+        println!();
     }
 
     Ok(())
 }
+
 
