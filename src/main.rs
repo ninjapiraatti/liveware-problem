@@ -1,11 +1,9 @@
-use rand::distributions::Alphanumeric;
 use rand::Rng;
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use std::env;
 use std::fmt;
 use std::io::{self, BufRead, BufReader, Write};
-use std::iter::RepeatWith;
 use termion::{color, style, terminal_size};
 
 #[derive(Deserialize, Debug)]
@@ -116,51 +114,18 @@ fn get_prompt() -> String {
     prompt
 }
 
-/*
-fn send_prompt(prompt: &str, api_key: &str) -> Result<String, reqwest::Error> {
-    let client = Client::new();
-    let request_body = serde_json::json!({
-        "model": "gpt-3.5-turbo",
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.7
-    });
-
-    let res = client
-        .post("https://api.openai.com/v1/chat/completions")
-        .header("Authorization", format!("Bearer {}", api_key))
-        .json(&request_body)
-        .send()?;
-
-    let body_text = res.text()?;
-    //println!("Raw response body: {}", body_text); // For debugging
-
-    let parsed_response: ApiResponse = serde_json::from_str(&body_text).unwrap();
-
-    let response_message = parsed_response.choices.get(0).map_or_else(
-        || "No response found.".to_string(),
-        |choice| choice.message.content.clone(),
-    );
-
-    Ok(response_message)
-}
-*/
-
 fn send_prompt(prompt: &str, api_key: &str, history: &mut Vec<Message>) -> Result<String, AppError> {
-    // Add the new prompt to the history
     history.push(Message {
         role: "user".to_string(),
         content: prompt.to_string(),
     });
 
-    // Ensure the total character count of the history does not exceed 10000
     let mut total_chars:usize = history.iter().map(|msg| msg.content.len()).sum();
     while total_chars > 10000 && !history.is_empty() {
         let removed = history.remove(0);
         total_chars -= removed.content.len();
     }
     
-
-    // Prepare the messages for the request
     let messages: Vec<_> = history.iter().map(|msg| {
         serde_json::json!({"role": msg.role, "content": msg.content})
     }).collect();
@@ -182,7 +147,6 @@ fn send_prompt(prompt: &str, api_key: &str, history: &mut Vec<Message>) -> Resul
     let parsed_response: ApiResponse = serde_json::from_str(&body_text).unwrap();
 
     if let Some(choice) = parsed_response.choices.get(0) {
-        // Save the response to history
         history.push(Message {
             role: "assistant".to_string(),
             content: choice.message.content.clone(),
@@ -193,31 +157,11 @@ fn send_prompt(prompt: &str, api_key: &str, history: &mut Vec<Message>) -> Resul
     }
 }
 
-/*
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    dotenv::dotenv().ok();
-    let api_key = env::var("OPEN_AI_API_KEY").expect("OPEN_AI_API_KEY not found in .env file");
-    loop {
-        let prompt = get_prompt();
-        if prompt.trim().is_empty() || prompt.trim() == "exit" {
-            break;
-        }
-
-        match send_prompt(&prompt, &api_key as &str) {
-            Ok(response) => println!("\nResponse: {}", response),
-            Err(e) => eprintln!("Error: {}", e),
-        }
-    }
-
-    Ok(())
-}
-*/
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv::dotenv().ok();
     let api_key = env::var("OPEN_AI_API_KEY").expect("OPEN_AI_API_KEY not found in .env file");
     
-    let mut history = Vec::new(); // Initialize message history
+    let mut history = Vec::new();
 
     loop {
         let prompt = get_prompt();
