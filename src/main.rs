@@ -109,7 +109,7 @@ fn get_prompt() -> String {
     let mut prompt = String::new();
     for line in stdin.lines() {
         let line = line.expect("Failed to read line");
-        if line == "end" {
+        if line == "////" {
             break;
         }
         prompt.push_str(&line);
@@ -139,7 +139,7 @@ fn send_prompt(prompt: &str, api_key: &str, history: &Arc<Mutex<Vec<Message>>>) 
 
     let client = Client::new();
     let request_body = serde_json::json!({
-        "model": "gpt-3.5-turbo",
+        "model": "gpt-4-0125-preview",
         "messages": messages,
         "temperature": 0.7
     });
