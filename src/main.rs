@@ -107,7 +107,7 @@ fn get_prompt() -> (String, String) {
     stdout.flush().unwrap();
 
     let mut prompt = String::new();
-    let mut model = "gpt-4-turbo-preview"; // Default model
+    let mut model = "gpt-4o"; // Default model
     for line in stdin.lines() {
         let line = line.expect("Failed to read line");
         if line == "//3" {
