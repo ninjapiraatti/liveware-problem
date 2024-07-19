@@ -4,11 +4,11 @@ use serde::Deserialize;
 use std::env;
 use std::fmt;
 use std::io::{self, BufRead, BufReader, Write};
-use termion::{color, style, terminal_size};
-use std::thread;
 use std::sync::mpsc;
-use std::time::Duration;
 use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
+use termion::{color, style, terminal_size};
 
 #[derive(Deserialize, Debug)]
 struct ApiResponse {
@@ -107,14 +107,14 @@ fn get_prompt() -> (String, String) {
     stdout.flush().unwrap();
 
     let mut prompt = String::new();
-    let mut model = "gpt-4o"; // Default model
+    let mut model = "gpt-4o-mini"; // Default model
     for line in stdin.lines() {
         let line = line.expect("Failed to read line");
         if line == "//3" {
             model = "gpt-3.5-turbo";
             break;
         } else if line == "//4" {
-            model = "gpt-4";
+            model = "gpt-4o";
             break;
         } else if line == "//T" {
             model = "gpt-4-turbo";
@@ -129,7 +129,12 @@ fn get_prompt() -> (String, String) {
     (prompt, model.to_string())
 }
 
-fn send_prompt(prompt: &str, api_key: &str, model: &str, history: &Arc<Mutex<Vec<Message>>>) -> Result<String, AppError> {
+fn send_prompt(
+    prompt: &str,
+    api_key: &str,
+    model: &str,
+    history: &Arc<Mutex<Vec<Message>>>,
+) -> Result<String, AppError> {
     println!();
     let mut history = history.lock().unwrap();
     history.push(Message {
@@ -137,21 +142,22 @@ fn send_prompt(prompt: &str, api_key: &str, model: &str, history: &Arc<Mutex<Vec
         content: prompt.to_string(),
     });
 
-    let mut total_chars:usize = history.iter().map(|msg| msg.content.len()).sum();
+    let mut total_chars: usize = history.iter().map(|msg| msg.content.len()).sum();
     while total_chars > 20000 && !history.is_empty() {
         let removed = history.remove(0);
         total_chars -= removed.content.len();
     }
-    
-    let messages: Vec<_> = history.iter().map(|msg| {
-        serde_json::json!({"role": msg.role, "content": msg.content})
-    }).collect();
+
+    let messages: Vec<_> = history
+        .iter()
+        .map(|msg| serde_json::json!({"role": msg.role, "content": msg.content}))
+        .collect();
 
     let client = Client::new();
     let request_body = serde_json::json!({
         "model": model,
         "messages": messages,
-        "temperature": 0.7
+        "temperature": 0.4
     });
 
     let res = client
@@ -177,7 +183,7 @@ fn send_prompt(prompt: &str, api_key: &str, model: &str, history: &Arc<Mutex<Vec
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv::dotenv().ok();
     let api_key = env::var("OPEN_AI_API_KEY").expect("OPEN_AI_API_KEY not found in .env file");
-    
+
     let history = Arc::new(Mutex::new(Vec::new()));
 
     loop {
@@ -193,7 +199,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let history_clone = Arc::clone(&history);
         // Spawn a new thread for the blocking send_prompt operation
         thread::spawn(move || {
-            let result = send_prompt(&prompt_clone, &api_key_clone as &str, &model as &str, &history_clone);
+            let result = send_prompt(
+                &prompt_clone,
+                &api_key_clone as &str,
+                &model as &str,
+                &history_clone,
+            );
             tx.send(result).expect("Failed to send result over channel");
         });
 
@@ -209,17 +220,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Err(e) => eprintln!("Error on send_prompt: {}", e),
                     }
                     break; // Break the loop when the result is received
-                },
+                }
                 Err(mpsc::RecvTimeoutError::Timeout) => {
                     // Update and display the animation frame
                     let idx = rng.gen_range(0..loaderchars_len);
-                    print!("{}{}{}", color::Fg(color::LightCyan), loader_chars.chars().nth(idx).unwrap(), color::Fg(color::Reset));
+                    print!(
+                        "{}{}{}",
+                        color::Fg(color::LightCyan),
+                        loader_chars.chars().nth(idx).unwrap(),
+                        color::Fg(color::Reset)
+                    );
                     io::stdout().flush().unwrap();
-                },
+                }
                 Err(_) => {
                     eprintln!("\nThe thread handling the request has terminated unexpectedly.");
                     break;
-                },
+                }
             }
         }
         println!();
@@ -227,5 +243,3 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-
-
