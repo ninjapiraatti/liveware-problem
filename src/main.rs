@@ -116,9 +116,6 @@ fn get_prompt() -> (String, String) {
         } else if line == "//4" {
             model = "gpt-4o";
             break;
-        } else if line == "//T" {
-            model = "gpt-4-turbo";
-            break;
         } else if line == "///" {
             break;
         }
