@@ -64,7 +64,7 @@ fn get_prompt() -> (String, String) {
     let mut rng = rand::thread_rng();
 
     // Generate two lines of random characters from the predefined string
-    let line: String = (0..width)
+    let line: String = (0..width * 2)
         .map(|_| {
             let idx = rng.gen_range(0..chars_len);
             chars.chars().nth(idx).unwrap()
@@ -78,24 +78,6 @@ fn get_prompt() -> (String, String) {
         color::Fg(termion::color::Rgb(255, 38, 106),), // Set the color
         style::Bold,                                   // Optional: make it bold
         line,                                          // First line of random characters
-        style::Reset,                                  // Reset style
-        color::Fg(color::Reset)                        // Reset color
-    )
-    .unwrap();
-
-    // Repeat for the second line
-    let line: String = (0..width)
-        .map(|_| {
-            let idx = rng.gen_range(0..chars_len);
-            chars.chars().nth(idx).unwrap()
-        })
-        .collect();
-    writeln!(
-        stdout,
-        "{}{}{}{}{}",
-        color::Fg(termion::color::Rgb(255, 38, 106),), // Set the color
-        style::Bold,                                   // Optional: make it bold
-        line,                                          // Second line of random characters
         style::Reset,                                  // Reset style
         color::Fg(color::Reset)                        // Reset color
     )
