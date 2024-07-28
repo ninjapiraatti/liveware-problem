@@ -53,14 +53,11 @@ fn get_prompt() -> (String, String) {
     let stdin = io::stdin();
     let stdin = BufReader::new(stdin);
 
-    // Predefined string of characters to choose from
     let chars = "░▒▓█⌐¬½¼┴┬─═╧╨╤±≥≤↔-";
     let chars_len = chars.chars().count();
 
-    // Get the terminal width
-    let (width, _) = terminal_size().unwrap_or((80, 24)); // Default to 80x24 if unable to get size
+    let (width, _) = terminal_size().unwrap_or((80, 24));
 
-    // Random number generator
     let mut rng = rand::thread_rng();
 
     // Generate two lines of random characters from the predefined string
@@ -71,25 +68,22 @@ fn get_prompt() -> (String, String) {
         })
         .collect();
 
-    // Drawing the divider with color
     writeln!(
         stdout,
         "{}{}{}{}{}",
-        color::Fg(termion::color::Rgb(255, 38, 106),), // Set the color
-        style::Bold,                                   // Optional: make it bold
-        line,                                          // First line of random characters
-        style::Reset,                                  // Reset style
-        color::Fg(color::Reset)                        // Reset color
+        color::Fg(termion::color::Rgb(255, 38, 106),),
+        style::Bold,
+        line,
+        style::Reset,
+        color::Fg(color::Reset)
     )
     .unwrap();
     println!();
 
-    // Prompt for input
-    //writeln!(stdout, "prompt: (type 'end' on a new line to finish)").unwrap();
     stdout.flush().unwrap();
 
     let mut prompt = String::new();
-    let mut model = "gpt-4o-mini"; // Default model
+    let mut model = "gpt-4o-mini";
     for line in stdin.lines() {
         let line = line.expect("Failed to read line");
         if line == "//3" {
@@ -122,7 +116,7 @@ fn send_prompt(
     });
 
     let mut total_chars: usize = history.iter().map(|msg| msg.content.len()).sum();
-    while total_chars > 20000 && !history.is_empty() {
+    while total_chars > 40000 && !history.is_empty() {
         let removed = history.remove(0);
         total_chars -= removed.content.len();
     }
@@ -162,7 +156,6 @@ fn send_prompt(
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv::dotenv().ok();
     let api_key = env::var("OPEN_AI_API_KEY").expect("OPEN_AI_API_KEY not found in .env file");
-
     let history = Arc::new(Mutex::new(Vec::new()));
 
     loop {
@@ -193,15 +186,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         loop {
             match rx.recv_timeout(Duration::from_millis(100)) {
                 Ok(result) => {
-                    // Process the result
                     match result {
                         Ok(response) => println!("\n\n{}", response),
                         Err(e) => eprintln!("Error on send_prompt: {}", e),
                     }
-                    break; // Break the loop when the result is received
+                    break;
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {
-                    // Update and display the animation frame
                     let idx = rng.gen_range(0..loaderchars_len);
                     print!(
                         "{}{}{}",
