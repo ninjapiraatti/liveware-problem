@@ -86,8 +86,11 @@ fn get_prompt() -> (String, String) {
     let mut model = "gpt-4o-mini";
     for line in stdin.lines() {
         let line = line.expect("Failed to read line");
-        if line == "//3" {
-            model = "gpt-3.5-turbo";
+        if line == "//o" {
+            model = "o1-mini";
+            break;
+        } else if line == "//1" {
+            model = "o1-preview";
             break;
         } else if line == "//4" {
             model = "gpt-4o";
