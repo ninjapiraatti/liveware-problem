@@ -83,17 +83,14 @@ fn get_prompt() -> (String, String) {
     stdout.flush().unwrap();
 
     let mut prompt = String::new();
-    let mut model = "gpt-4o-mini";
+    let mut model = "gpt-4.1-mini";
     for line in stdin.lines() {
         let line = line.expect("Failed to read line");
         if line == "//o" {
-            model = "o1-mini";
+            model = "o4-mini";
             break;
-        } else if line == "//1" {
-            model = "o1-preview";
-            break;
-        } else if line == "//4" {
-            model = "gpt-4o";
+        } else if line == "//$" {
+            model = "o3";
             break;
         } else if line == "///" {
             break;
